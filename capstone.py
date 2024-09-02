@@ -5,6 +5,25 @@ import streamlit as st
 import time
 from PIL import Image
 import warnings
+from streamlit_webrtc import webrtc_streamer
+import av
+import threading
+
+# Lock for thread safety
+lock = threading.Lock()
+img_container = {"img": None}
+
+def video_frame_callback(output):
+    # Convert the incoming frame to an ndarray with BGR format
+    output = output.to_ndarray(format="bgr24")
+    
+    # Process the output (if needed) before assigning it to img_container
+    with lock:
+        img_container["img"] = output
+    
+    # Return the frame with the processed output
+    return output
+
 
 #background purpose
 page_bg_img = """
@@ -17,6 +36,7 @@ page_bg_img = """
     }
     </style>
     """
+
 st.set_page_config(layout="wide")
 st.markdown(page_bg_img, unsafe_allow_html=True)
 page = st.sidebar.selectbox("Explore Your Creative Journey", ["Home","About Epitome", "AR Transparent Board"])
@@ -109,7 +129,7 @@ elif page == "AR Transparent Board":
     st.write("This section will contain the AR Transparent Drawing Board implementation...")
     # The AR board implementation code will be added here...
     
-    frame_placeholder = st.empty()
+
     warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf.symbol_database")
 
     colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 0, 255), (255, 255, 0)]
@@ -227,6 +247,7 @@ elif page == "AR Transparent Board":
             prev_time = current_time
 
             cv2.putText(output, f"FPS: {int(fps)}", (10, frame_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            ctx = webrtc_streamer(key="example", video_frame_callback=video_frame_callback)
 
             # cv2.imshow("AirSketch", output)
 
@@ -240,7 +261,6 @@ elif page == "AR Transparent Board":
                 line_thickness = min(line_thickness + 1, 10)
             elif key == ord('-'):
                 line_thickness = max(line_thickness - 1, 1)
-            frame_placeholder.image(output, channels="BGR")
             if stop:
                 break
         cap.release()
